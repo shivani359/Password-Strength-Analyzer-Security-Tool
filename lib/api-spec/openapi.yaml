@@ -1,0 +1,319 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Privacy-focused password analysis and security education API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: analysis
+    description: Password analysis operations
+  - name: analytics
+    description: Privacy-safe aggregate analytics
+  - name: generator
+    description: Secure demo password generation
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /analyze:
+    post:
+      operationId: analyzePassword
+      tags: [analysis]
+      summary: Analyze a password transiently
+      description: Analyzes the submitted password in memory. The password is never returned, logged, or persisted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordAnalysisInput"
+      responses:
+        "200":
+          description: Password analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordAnalysis"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /generate-password:
+    post:
+      operationId: generatePassword
+      tags: [generator]
+      summary: Generate a secure demo password
+      description: Generates a password using a cryptographically secure random source. Generated values are not stored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordGenerationInput"
+      responses:
+        "200":
+          description: Generated password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedPassword"
+        "400":
+          description: Invalid generation options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [analytics]
+      summary: Get aggregate dashboard statistics
+      description: Returns only safe aggregate metadata from analyses made since the service started.
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+  /analytics/weaknesses:
+    get:
+      operationId: getWeaknessAnalytics
+      tags: [analytics]
+      summary: Get grouped weakness frequencies
+      description: Returns aggregate weakness categories without passwords or personal context.
+      responses:
+        "200":
+          description: Weakness frequency data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeaknessAnalytics"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    PasswordPolicy:
+      type: object
+      properties:
+        minimumLength:
+          type: integer
+          minimum: 1
+          maximum: 128
+        rejectCommonPasswords:
+          type: boolean
+        checkPersonalInfo:
+          type: boolean
+        allowSpaces:
+          type: boolean
+      required: [minimumLength, rejectCommonPasswords, checkPersonalInfo, allowSpaces]
+    PersonalContext:
+      type: object
+      properties:
+        firstName:
+          type: string
+          maxLength: 80
+        birthYear:
+          type: string
+          maxLength: 4
+        organization:
+          type: string
+          maxLength: 120
+    PasswordAnalysisInput:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 0
+          maxLength: 256
+        personalContext:
+          allOf:
+            - $ref: "#/components/schemas/PersonalContext"
+        policy:
+          allOf:
+            - $ref: "#/components/schemas/PasswordPolicy"
+      required: [password]
+    Finding:
+      type: object
+      properties:
+        type:
+          type: string
+        severity:
+          type: string
+          enum: [positive, caution, critical]
+        title:
+          type: string
+        detail:
+          type: string
+      required: [type, severity, title, detail]
+    Suggestion:
+      type: object
+      properties:
+        title:
+          type: string
+        detail:
+          type: string
+      required: [title, detail]
+    PasswordMetrics:
+      type: object
+      properties:
+        length:
+          type: integer
+        lengthBand:
+          type: string
+        uniqueCharacterCount:
+          type: integer
+        uniqueCharacterRatio:
+          type: number
+        characterPool:
+          type: integer
+        characterTypes:
+          type: integer
+        estimatedEntropy:
+          type: number
+        patternCount:
+          type: integer
+        policyPass:
+          type: boolean
+        policyChecks:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              passed:
+                type: boolean
+            required: [label, passed]
+      required:
+        - length
+        - lengthBand
+        - uniqueCharacterCount
+        - uniqueCharacterRatio
+        - characterPool
+        - characterTypes
+        - estimatedEntropy
+        - patternCount
+        - policyPass
+        - policyChecks
+    PasswordAnalysis:
+      type: object
+      properties:
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        classification:
+          type: string
+          enum: [VERY WEAK, WEAK, MODERATE, STRONG, VERY STRONG]
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Finding"
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Suggestion"
+        metrics:
+          $ref: "#/components/schemas/PasswordMetrics"
+      required: [score, classification, findings, suggestions, metrics]
+    PasswordGenerationInput:
+      type: object
+      properties:
+        length:
+          type: integer
+          enum: [16, 20, 24]
+        uppercase:
+          type: boolean
+        lowercase:
+          type: boolean
+        numbers:
+          type: boolean
+        symbols:
+          type: boolean
+      required: [length, uppercase, lowercase, numbers, symbols]
+    GeneratedPassword:
+      type: object
+      properties:
+        password:
+          type: string
+        length:
+          type: integer
+        composition:
+          type: array
+          items:
+            type: string
+      required: [password, length, composition]
+    ClassificationCount:
+      type: object
+      properties:
+        classification:
+          type: string
+        count:
+          type: integer
+      required: [classification, count]
+    WeaknessCount:
+      type: object
+      properties:
+        type:
+          type: string
+        label:
+          type: string
+        count:
+          type: integer
+      required: [type, label, count]
+    DashboardStats:
+      type: object
+      properties:
+        totalAnalyses:
+          type: integer
+        averageScore:
+          type: number
+        averageLength:
+          type: number
+        classificationCounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClassificationCount"
+        recentScores:
+          type: array
+          items:
+            type: integer
+      required: [totalAnalyses, averageScore, averageLength, classificationCounts, recentScores]
+    WeaknessAnalytics:
+      type: object
+      properties:
+        weaknesses:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeaknessCount"
+      required: [weaknesses]
+

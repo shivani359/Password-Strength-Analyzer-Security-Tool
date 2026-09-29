@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Password Strength Analyzer"
+description = "A privacy-focused defensive cybersecurity tool that evaluates password strength locally, explains weaknesses, generates safer demo passwords, checks configurable policy rules, and shows aggregate metadata without storing passwords."
+version = "1.0.0"
+id = "artifacts/password-analyzer"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20877
+
+[services.development]
+run = "pnpm --filter @workspace/password-analyzer run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/password-analyzer", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/password-analyzer/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20877"
+BASE_PATH = "/"
